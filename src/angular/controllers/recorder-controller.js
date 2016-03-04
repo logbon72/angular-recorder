@@ -27,8 +27,7 @@ var blobToDataURL = function (blob, callback) {
   };
   a.readAsDataURL(blob);
 };
-
-var RecorderController = function (element, service, recorderUtils, $scope, $timeout, $interval, PLAYBACK) {
+var RecorderController = function ($element, recorderService, recorderUtils, $scope, $timeout, $interval, recorderPlaybackStatus) {
   //used in NON-Angular Async process
   var scopeApply = function (fn) {
     var phase = $scope.$root.$$phase;
@@ -46,73 +45,73 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
     audioObjId = 'recorded-audio-' + control.id,
     status = {
       isRecording: false,
-      playback: PLAYBACK.STOPPED,
+      playback: recorderPlaybackStatus.STOPPED,
       isDenied: null,
       isSwfLoaded: null,
       isConverting: false,
       get isPlaying() {
-        return status.playback === PLAYBACK.PLAYING;
+        return status.playback === recorderPlaybackStatus.PLAYING;
       },
       get isStopped() {
-        return status.playback === PLAYBACK.STOPPED;
+        return status.playback === recorderPlaybackStatus.STOPPED;
       },
       get isPaused() {
-        return status.playback === PLAYBACK.PAUSED;
+        return status.playback === recorderPlaybackStatus.PAUSED;
       }
     },
-    shouldConvertToMp3 = angular.isDefined(control.convertMp3) ? !!control.convertMp3 : service.shouldConvertToMp3(),
-    mp3Converter = shouldConvertToMp3 ? new MP3Converter(service.getMp3Config()) : null;
+    shouldConvertToMp3 = angular.isDefined(control.convertMp3) ? !!control.convertMp3 : recorderService.shouldConvertToMp3(),
+    mp3Converter = shouldConvertToMp3 ? new MP3Converter(recorderService.getMp3Config()) : null;
   ;
 
 
   control.timeLimit = control.timeLimit || 0;
   control.status = createReadOnlyVersion(status);
-  control.isAvailable = service.isAvailable();
+  control.isAvailable = recorderService.isAvailable();
   control.elapsedTime = 0;
-  //Sets ID for the element if ID doesn't exists
+  //Sets ID for the $element if ID doesn't exists
   if (!control.id) {
     control.id = recorderUtils.generateUuid();
-    element.attr("id", control.id);
+    $element.attr("id", control.id);
   }
 
 
-  if (!service.isHtml5 && !service.isCordova) {
-    status.isSwfLoaded = service.swfIsLoaded();
+  if (!recorderService.isHtml5 && !recorderService.isCordova) {
+    status.isSwfLoaded = recorderService.swfIsLoaded();
     $scope.$watch(function () {
-      return service.swfIsLoaded();
+      return recorderService.swfIsLoaded();
     }, function (n) {
       status.isSwfLoaded = n;
     });
   }
 
 
-  //register controller with service
-  service.setController(control.id, this);
+  //register controller with recorderService
+  recorderService.setController(control.id, this);
 
   var playbackOnEnded = function () {
-    status.playback = PLAYBACK.STOPPED;
+    status.playback = recorderPlaybackStatus.STOPPED;
     control.onPlaybackComplete();
     scopeApply();
   };
 
   var playbackOnPause = function () {
-    status.playback = PLAYBACK.PAUSED;
+    status.playback = recorderPlaybackStatus.PAUSED;
     control.onPlaybackPause();
   };
 
   var playbackOnStart = function () {
-    status.playback = PLAYBACK.PLAYING;
+    status.playback = recorderPlaybackStatus.PLAYING;
     control.onPlaybackStart();
   };
 
   var playbackOnResume = function () {
-    status.playback = PLAYBACK.PLAYING;
+    status.playback = recorderPlaybackStatus.PLAYING;
     control.onPlaybackResume();
   };
 
   var embedPlayer = function (blob) {
     if (document.getElementById(audioObjId) == null) {
-      element.append('<audio type="audio/mp3" id="' + audioObjId + '"></audio>');
+      $element.append('<audio type="audio/mp3" id="' + audioObjId + '"></audio>');
 
       var audioPlayer = document.getElementById(audioObjId);
       if (control.showPlayer) {
@@ -166,28 +165,28 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
   };
 
   control.getAudioPlayer = function () {
-    return service.isCordova ? cordovaMedia.player : document.getElementById(audioObjId);
+    return recorderService.isCordova ? cordovaMedia.player : document.getElementById(audioObjId);
   };
 
 
   control.startRecord = function () {
-    if (!service.isAvailable()) {
+    if (!recorderService.isAvailable()) {
       return;
     }
 
     if (status.isPlaying) {
       control.playbackPause();
       //indicate that this is not paused.
-      status.playback = PLAYBACK.STOPPED;
+      status.playback = recorderPlaybackStatus.STOPPED;
     }
 
     //clear audio previously recorded
     control.audioModel = null;
 
-    var id = control.id, recordHandler = service.getHandler();
+    var id = control.id, recordHandler = recorderService.getHandler();
     //Record initiation based on browser type
     var start = function () {
-      if (service.isCordova) {
+      if (recorderService.isCordova) {
         cordovaMedia.url = recorderUtils.cordovaAudioUrl(control.id);
         //mobile app needs wav extension to save recording
         cordovaMedia.recorder = new Media(cordovaMedia.url, function () {
@@ -198,7 +197,7 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
         console.log('CordovaRecording');
         cordovaMedia.recorder.startRecord();
       }
-      else if (service.isHtml5) {
+      else if (recorderService.isHtml5) {
         //HTML5 recording
         if (!recordHandler) {
           return;
@@ -209,7 +208,7 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
       }
       else {
         //Flash recording
-        if (!service.isReady) {
+        if (!recorderService.isReady) {
           //Stop recording if the flash object is not ready
           return;
         }
@@ -228,18 +227,18 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
       }, 1000);
     };
 
-    if (service.isCordova || recordHandler) {
+    if (recorderService.isCordova || recordHandler) {
       start();
     } else if (!status.isDenied) {
       //probably permission was never asked
-      service.showPermission({
+      recorderService.showPermission({
         onDenied: function () {
           status.isDenied = true;
           $scope.$apply();
         },
         onAllowed: function () {
           status.isDenied = false;
-          recordHandler = service.getHandler();
+          recordHandler = recorderService.getHandler();
           start();
           scopeApply();
         }
@@ -249,11 +248,11 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
 
   control.stopRecord = function () {
     var id = control.id;
-    if (!service.isAvailable() || !status.isRecording) {
+    if (!recorderService.isAvailable() || !status.isRecording) {
       return false;
     }
 
-    var recordHandler = service.getHandler();
+    var recordHandler = recorderService.getHandler();
     var completed = function (blob) {
       $interval.cancel(timing);
       status.isRecording = false;
@@ -273,7 +272,7 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
     };
 
     //To stop recording
-    if (service.isCordova) {
+    if (recorderService.isCordova) {
       cordovaMedia.recorder.stopRecord();
       window.resolveLocalFileSystemURL(cordovaMedia.url, function (entry) {
         entry.file(function (blob) {
@@ -282,7 +281,7 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
       }, function (err) {
         console.log('Could not retrieve file, error code:', err.code);
       });
-    } else if (service.isHtml5) {
+    } else if (recorderService.isHtml5) {
       recordHandler.stop();
       recordHandler.getBuffer(function () {
         recordHandler.exportWAV(function (blob) {
@@ -297,11 +296,11 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
   };
 
   control.playbackRecording = function () {
-    if (status.isPlaying || !service.isAvailable() || status.isRecording || !control.audioModel) {
+    if (status.isPlaying || !recorderService.isAvailable() || status.isRecording || !control.audioModel) {
       return false;
     }
 
-    if (service.isCordova) {
+    if (recorderService.isCordova) {
       cordovaMedia.player = new Media(cordovaMedia.url, playbackOnEnded, function () {
         console.log('Playback failed');
       });
@@ -314,25 +313,25 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
   };
 
   control.playbackPause = function () {
-    if (!status.isPlaying || !service.isAvailable() || status.isRecording || !control.audioModel) {
+    if (!status.isPlaying || !recorderService.isAvailable() || status.isRecording || !control.audioModel) {
       return false;
     }
 
     control.getAudioPlayer().pause();
-    if (service.isCordova) {
+    if (recorderService.isCordova) {
       playbackOnPause();
     }
   };
 
   control.playbackResume = function () {
-    if (status.isPlaying || !service.isAvailable() || status.isRecording || !control.audioModel) {
+    if (status.isPlaying || !recorderService.isAvailable() || status.isRecording || !control.audioModel) {
       return false;
     }
 
     if (status.isPaused) {
       //previously paused, just resume
       control.getAudioPlayer().play();
-      if (service.isCordova) {
+      if (recorderService.isCordova) {
         playbackOnResume();
       }
     } else {
@@ -343,7 +342,7 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
 
 
   control.save = function (fileName) {
-    if (!service.isAvailable() || status.isRecording || !control.audioModel) {
+    if (!recorderService.isAvailable() || status.isRecording || !control.audioModel) {
       return false;
     }
 
@@ -362,7 +361,7 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
   };
 
   control.isHtml5 = function () {
-    return service.isHtml5;
+    return recorderService.isHtml5;
   };
 
   if (control.autoStart) {
@@ -371,14 +370,12 @@ var RecorderController = function (element, service, recorderUtils, $scope, $tim
     }, 1000);
   }
 
-  element.on('$destroy', function () {
+  $element.on('$destroy', function () {
     $interval.cancel(timing);
   });
 
 };
 
-RecorderController.$inject = ['$element', 'recorderService', 'recorderUtils', '$scope', '$timeout', '$interval', 'recorderPlaybackStatus'];
-
 angular.module('angularAudioRecorder.controllers')
-  .controller('recorderController', RecorderController)
+  .controller('recorderController', ['$element', 'recorderService', 'recorderUtils', '$scope', '$timeout', '$interval', 'recorderPlaybackStatus', RecorderController])
 ;

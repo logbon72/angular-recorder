@@ -2,16 +2,16 @@
 
 angular.module('angularAudioRecorder.services')
   .provider('recorderService', ['recorderScriptUrl',
-    function (scriptPath) {
+    function (recorderScriptUrl) {
       var handler = null,
         service = {isHtml5: false, isReady: false},
         permissionHandlers = {onDenied: null, onClosed: null, onAllow: null},
         forceSwf = false,
         /*this path is relative to the dist path:*/
-        swfUrl = scriptPath + '../lib/recorder.swf',
+        swfUrl = recorderScriptUrl + '../lib/recorder.swf',
         utils,
         mp3Covert = false,
-        mp3Config = {bitRate: 92, lameJsUrl: scriptPath + '../lib/lame.min.js'}
+        mp3Config = {bitRate: 92, lameJsUrl: recorderScriptUrl + '../lib/lame.min.js'}
         ;
 
       var swfHandlerConfig = {
