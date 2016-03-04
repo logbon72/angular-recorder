@@ -1,8 +1,8 @@
 'use strict';
 
 angular.module('angularAudioRecorder.directives')
-  .directive('ngAudioRecorderWaveView', ['recorderService', 'recorderUtils', '$log',
-    function (service, utils, $log) {
+  .directive('ngAudioRecorderWaveView', ['recorderUtils', '$log',
+    function (recorderUtils, $log) {
 
       return {
         restrict: 'E',
@@ -18,14 +18,14 @@ angular.module('angularAudioRecorder.directives')
           var options = angular.extend({container: $element.find('div')[0]}, attrs);
           var waveSurfer = WaveSurfer.create(options);
           waveSurfer.setVolume(0);
-          utils.appendActionToCallback(recorder, 'onPlaybackStart|onPlaybackResume', function () {
+          recorderUtils.appendActionToCallback(recorder, 'onPlaybackStart|onPlaybackResume', function () {
             waveSurfer.play();
           }, 'waveView');
-          utils.appendActionToCallback(recorder, 'onPlaybackComplete|onPlaybackPause', function () {
+          recorderUtils.appendActionToCallback(recorder, 'onPlaybackComplete|onPlaybackPause', function () {
             waveSurfer.pause();
           }, 'waveView');
 
-          utils.appendActionToCallback(recorder, 'onRecordComplete', function () {
+          recorderUtils.appendActionToCallback(recorder, 'onRecordComplete', function () {
             if (!audioPlayer) {
               audioPlayer = recorder.getAudioPlayer();
               audioPlayer.addEventListener('seeking', function (e) {

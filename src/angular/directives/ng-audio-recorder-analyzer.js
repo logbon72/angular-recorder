@@ -2,15 +2,15 @@
 
 angular.module('angularAudioRecorder.directives')
   .directive('ngAudioRecorderAnalyzer', ['recorderService', 'recorderUtils',
-    function (service, utils) {
+    function (recorderService, recorderUtils) {
 
       var link = function (scope, element, attrs, recorder) {
-        if (!service.isHtml5) {
+        if (!recorderService.isHtml5) {
           scope.hide = true;
           return;
         }
 
-        var canvasWidth, canvasHeight, rafID, analyserContext, props = service.$html5AudioProps;
+        var canvasWidth, canvasHeight, rafID, analyserContext, props = recorderService.$html5AudioProps;
 
         function updateAnalysers(time) {
 
@@ -80,8 +80,8 @@ angular.module('angularAudioRecorder.directives')
           };
         })(recorder.onRecordStart);
 
-        utils.appendActionToCallback(recorder, 'onRecordStart', updateAnalysers, 'analyzer');
-        utils.appendActionToCallback(recorder, 'onRecordComplete', cancelAnalyserUpdates, 'analyzer');
+        recorderUtils.appendActionToCallback(recorder, 'onRecordStart', updateAnalysers, 'analyzer');
+        recorderUtils.appendActionToCallback(recorder, 'onRecordComplete', cancelAnalyserUpdates, 'analyzer');
       };
 
       return {
